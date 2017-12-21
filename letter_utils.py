@@ -30,6 +30,7 @@ def letterNet(input_shape: object = (28, 28, 1), n_class: object = 26) -> object
     model = models.Model([x],[output])
 
     model.load_weights('trained_model.h5')
+
     return model
 
 
@@ -102,7 +103,7 @@ def detect(image_np, expected_letter, correct_letter_count = 0, min_certainty = 
     if expected_letter == 'W':
         # because the W has the most white pixels of all, random combinations of other letters
         # sometimes get misidentified as a W, so let's make sure we are sure!
-        min_certainty = 0.95
+        min_certainty = 0.98
 
     if np.std(mean_over_samples[-10:]) < 0.8 and (mean_over_samples[-1:][0] > 2):
         for_pred = image_np.reshape(1, 28, 28, 1).astype('float32') / 255
@@ -153,5 +154,4 @@ def train():
 
     return model
 
-nn = letterNet()
 mean_over_samples = []

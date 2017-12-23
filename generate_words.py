@@ -29,7 +29,7 @@ def getWords(min_len):
 
     words = [word for word in word_list if len(word) == len(set(word)) and re.search("[^A-Za-z\ ]", word) == None]
 
-    output = [word for word in words if len(word) >= min_len and len(word) <= (min_len + 1) and word[-1:] != 's']
+    output = [word for word in words if len(word) >= min_len and len(word) <= 26 and word[-1:] != 's']
     return output
 
 def getSentence(word):
@@ -42,11 +42,9 @@ def getSentence(word):
     else:
         return ''
 
-def getWordToSpell(words):
-    word_to_spell = words.pop()
-    sentence = getSentence(word_to_spell)
-    if sentence == '' or word_to_spell == '':
-        getWordToSpell(words)
-    else:
-        print('Can you spell ' + word_to_spell + '?')
-        return (word_to_spell, sentence)
+
+words = getWords(3)
+for word in words:
+    sentence = getSentence(word)
+    if sentence != '':
+        print(word+',"'+sentence+'"')

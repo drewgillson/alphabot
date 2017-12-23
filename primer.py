@@ -1,6 +1,5 @@
 import argparse
 import cv2
-import dict_utils
 import letter_utils
 import random
 import time
@@ -12,6 +11,7 @@ from multiprocessing import Queue, Pool
 import subprocess
 from collections import deque
 import numpy as np
+import csv
 
 class RingBuffer(deque):
     def __init__(self, size):
@@ -34,6 +34,9 @@ class RingBuffer(deque):
 
 
 def say(msg):
+    if isinstance(msg, list):
+        msg = msg[0]
+
     subprocess.run(["say", msg])
 
 
@@ -61,11 +64,27 @@ def worker_letters(input_q, output_q):
             for_pred = frame.reshape(1, 28, 28, 1).astype('float32') / 255
             y_pred = nn.predict(for_pred, batch_size=1)
             certainty = np.amax(y_pred, 1)
+            guess = chr(np.argmax(y_pred, 1) + ord('A'))
+            print(str(certainty) + ': ' + guess)
             if certainty > min_certainty:
-                letter = chr(np.argmax(y_pred, 1) + ord('A'))
+                letter = guess
 
         output_q.put(letter)
 
+
+def read_from_csv(file):
+    with open('corpus/' + file + '.csv', 'r') as f:
+        reader = csv.reader(f)
+        contents = [list(filter(None, c)) for c in list(reader)]
+        return contents
+
+def getWordToSpell(max_length = 4):
+    global words
+    time.sleep(2)
+    while True:
+        word = random.choice(words)
+        if len(word[0]) <= max_length:
+            return word[0], word[1]
 
 if __name__ == "__main__":
 
@@ -90,26 +109,13 @@ if __name__ == "__main__":
         letter_utils.train()
 
     elif args.mode == "spell":
-        accolades = ["Correct!", "Yup!", "Yep!", "You got it!", "Nice work.", "Keep going!", "Excellent!", "Wonderful!",
-                     "Spectacular!", "Amazing!", "Smart!", "Cool!", "Great!", "Perfect!", "Super!"]
-        word_accolades = ["Great job!", "My friend you are superb.", "You really know how to spell.",
-                          "Congratulations!",
-                          "That is a good word", "It is absolutely perfect", "Tiny human being, you spelled it right!",
-                          "You are my favorite speller", "I like the way you spell!", "You did it!",
-                          "Soon you will be a word master!"]
-        letter_criticisms = ["Oh oh, that is not right.", "That is not good man.", "Nope, wrong.", "Try again",
-                             "Incorrect",
-                             "Bad bad bad!", "No silly, that is not right", "You need to learn how to spell my friend.",
-                             "My brain hurts from trying to read your bad spelling.", "Garbage in, garbage out!",
-                             "Please try again."]
-        thinking = ["Hmmmm, ok let me think of another word.", "Coming up with another word.",
-                    "Pulling out my dictionary",
-                    "New word coming up...", "Let me find another good one!",
-                    "You are making me tired with all these words.",
-                    "Clink, clink, clink... extracting word from memory vault."]
 
-        words = dict_utils.getWords(args.min_len)
-        word_to_spell, sentence = dict_utils.getWordToSpell(words)
+        accolades = read_from_csv('accolades')
+        word_accolades = read_from_csv('word_accolades')
+        letter_criticisms = read_from_csv('letter_criticisms')
+        thinking = read_from_csv('thinking')
+        words = read_from_csv('words')
+        word_to_spell, sentence = getWordToSpell()
 
         directory = os.path.dirname(os.path.realpath(__file__))
         iterations = 0
@@ -139,7 +145,7 @@ if __name__ == "__main__":
         pool_worker_letters = Pool(1, worker_letters, (worker_letter_input, worker_letter_output))
 
         while True:
-            res = cv2.waitKey(200)
+            res = cv2.waitKey(80)
             image_np = video_capture.read()
             image_np = cv2.flip(image_np, -1)
             cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
@@ -147,8 +153,8 @@ if __name__ == "__main__":
             ring.append(np.mean(image_np))
             samples = ring.get()
 
-            print(np.std(samples))
-            if np.std(samples) < 0.08:
+            print("     " +str(np.std(samples)))
+            if np.std(samples) < 0.015:
 
                 worker_hand_input.put(image_np)
                 boxes, scores = worker_hand_output.get()
@@ -157,7 +163,7 @@ if __name__ == "__main__":
 
                 if crops is not None:
                     for crop in crops:
-                        worker_letter_input.put((crop, 0.9999))
+                        worker_letter_input.put((crop, 0.9998))
                         out = worker_letter_output.get()
 
                         if out != '' and out != last_letter:
@@ -175,8 +181,6 @@ if __name__ == "__main__":
                 say(random.choice(word_accolades))
                 say(str(len(word_to_spell)) + " points.")
                 total_points += len(word_to_spell)
-                min_len = args.min_len + int(total_points / 10)
-                words = dict_utils.getWords(min_len)
 
                 flag_waiting = False
                 last_letters = []
@@ -184,7 +188,7 @@ if __name__ == "__main__":
                 correct_word_count += 1
                 correct_letter_count = 0
                 say(random.choice(thinking))
-                word_to_spell, sentence = dict_utils.getWordToSpell(words)
+                word_to_spell, sentence = getWordToSpell()
                 continue
 
             if last_letter != detected_letter and detected_letter != '':
@@ -222,16 +226,16 @@ if __name__ == "__main__":
                 say('Can you spell ' + word_to_spell + '? As in: "' + sentence + '"')
                 flag_waiting = True
 
-            if iterations % 50 == 0 and iterations != 0:
+            if iterations % 800 == 0 and iterations != 0:
                 say('The word is ' + word_to_spell)
 
-            if iterations == 149:
+            if iterations == 2000:
                 say('Ok, we will spell ' + word_to_spell + ' some other time. You have ' + str(
                     total_points) + ' points.')
                 flag_waiting = False
                 last_letters = []
                 correct_letter_count = 0
-                word_to_spell, sentence = dict_utils.getWordToSpell(words)
+                word_to_spell, sentence = getWordToSpell()
 
             if len(last_letters) > 0:
                 last_letter = last_letters[-1]

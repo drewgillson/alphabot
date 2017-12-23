@@ -1,5 +1,3 @@
-# Utilities for object detector.
-
 import numpy as np
 import sys
 import tensorflow as tf
@@ -38,41 +36,39 @@ def load_inference_graph():
     return detection_graph, sess
 
 
-# draw the detected bounding boxes on the images
-# You can modify this to also draw a label.
 def get_touched_letter(num_hands_detect, score_thresh, scores, boxes, im_width, im_height, image_np):
-    import PIL.Image as Image
+    import scipy.misc
 
+    cp = image_np.copy()
     for i in range(num_hands_detect):
         if (scores[i] > score_thresh):
-            (left, right, top, bottom) = (boxes[i][1] * im_width, boxes[i][3] * im_width,
-                                          boxes[i][0] * im_height, boxes[i][2] * im_height)
-            #p1 = (int(left), int(top))
-            #p2 = (int(right), int(bottom))
-            #cv2.rectangle(image_np, p1, p2, (77, 255, 9), 3, 1)
+            (left, right, top, bottom) = (int(boxes[i][1] * im_width), int(boxes[i][3] * im_width),
+                                          int(boxes[i][0] * im_height), int(boxes[i][2] * im_height))
 
-            crop_img = image_np[int(top)-70:int(top)+10,int(left):int(left)+80]
-            try:
-                crop_img = cv2.fastNlMeansDenoisingColored(crop_img, None, 4, 4, 7, 21)
-                crop_img = cv2.Canny(crop_img, 90, 100)
+            cv2.rectangle(image_np, (left, top), (right, bottom), (77, 255, 9), 1, 1)
 
-                crop_imgPIL = Image.fromarray(np.uint8(crop_img))
-                crop_imgPIL.thumbnail((28, 28))
-                crop_img = np.asarray(crop_imgPIL)
+            squares = []
+            crops = []
 
-                cv2.imshow('crop', crop_img)
-            except:
-                print('oops')
+            squares.append((left, left+80, top-70, top+10))
+            #squares.append((x-20, x+60, y-90, y-10))
+            #squares.append((x+20, x+100, y-90, y-10))
+            #squares.append((x-20, x+60, y-50, y+30))
+            #squares.append((x+20, x+100, y-50, y+30))
 
-            return crop_img
+            for idx, square in enumerate(squares):
+                left, right, top, bottom = square
+                cv2.rectangle(image_np, (left, top), (right, bottom), (77, 255, 9), 1, 1)
+                crop_img = cp[top:bottom, left:right]
+                if crop_img.shape[0] == crop_img.shape[1]:
+                    crop_img = cv2.fastNlMeansDenoisingColored(crop_img, None, 4, 4, 7, 21)
+                    crop_img = cv2.Canny(crop_img, 90, 100)
+                    crop_img = scipy.misc.imresize(crop_img, (28, 28))
+                    crops.append(crop_img)
 
-# Show fps value on image.
-def draw_fps_on_image(fps, image_np):
-    cv2.putText(image_np, fps, (20, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (77, 255, 9), 2)
+            return crops
 
 
-# Actual detection .. generate scores and bounding boxes given an image
 def detect_objects(image_np, detection_graph, sess):
     # Definite input and output Tensors for detection_graph
     image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')

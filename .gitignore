@@ -4,3 +4,4 @@ __pycache__
 log.csv
 tensorboard-logs
 venv
+images

@@ -152,7 +152,6 @@ def get_another_word(success=True):
 
 def get_random_letter():
     expected_letter = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    say(expected_letter.lower())
     return expected_letter
 
 def handle_keys():
@@ -201,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--height', default=600, type=int) #960
     parser.add_argument('--length', default=6, type=int)
     parser.add_argument('--show', default=False, type=bool)
-    parser.add_argument('--mode', default="spell", type=str)
+    parser.add_argument('--mode', default="letters", type=str)
     args = parser.parse_args()
 
     video_capture = WebcamVideoStream(src=args.input,
@@ -252,7 +251,7 @@ if __name__ == "__main__":
 
             detected_letter = get_touched_letter() or ''
 
-            if args.mode == "spell":
+            if args.mode == "words":
                 if 'word_to_spell' not in locals():
                     word_to_spell, sentence = get_word_to_spell(args.length)
 
@@ -275,9 +274,15 @@ if __name__ == "__main__":
                         say('Ok, we will spell ' + word_to_spell + ' some other time. You have ' + str(
                             total_points) + ' points.')
                         word_to_spell, sentence = get_another_word(success=False)
-            elif args.mode == "capture_letters":
-                if not flag_capture_frames and (iterations % 30 == 0 or iterations == 1):
+            elif args.mode == "letters":
+                if not flag_capture_frames and iterations == 1:
                     expected_letter = get_random_letter()
+                    say('Can you find the ' + expected_letter + '?')
+
+                say(detected_letter.lower())
+                if expected_letter == detected_letter:
+                    say(random.choice(accolades))
+                    iterations = 0
 
             if handle_keys():
                 break

@@ -9,9 +9,6 @@ import label_map_utils
 
 sys.path.append("..")
 
-# score threshold for showing bounding boxes.
-_score_thresh = 0.40
-
 # Path to frozen detection graph. This is the actual model that is used for the object detection.
 PATH_TO_CKPT = 'hand_graph.pb'
 # List of the strings that is used to add correct label for each box.
@@ -36,34 +33,35 @@ def load_inference_graph():
     return detection_graph, sess
 
 
-def get_touched_letter(num_hands_detect, score_thresh, scores, boxes, im_width, im_height, image_np):
+def get_box_coords(boxes, i, cap_params):
+    return (int(boxes[i][1] * cap_params['im_width']), int(boxes[i][3] * cap_params['im_width']),
+            int(boxes[i][0] * cap_params['im_height']), int(boxes[i][2] * cap_params['im_height']))
+
+def get_touched_letter(cap_params, scores, boxes, image_np):
     import scipy.misc
 
-    cp = image_np.copy()
-    for i in range(num_hands_detect):
-        if (scores[i] > score_thresh):
-            (left, right, top, bottom) = (int(boxes[i][1] * im_width), int(boxes[i][3] * im_width),
-                                          int(boxes[i][0] * im_height), int(boxes[i][2] * im_height))
-
-            cv2.rectangle(image_np, (left, top), (right, bottom), (77, 255, 9), 1, 1)
+    for i in range(cap_params['num_hands_detect']):
+        if (scores[i] > cap_params['hand_score_thresh']):
+            left, right, top, bottom = get_box_coords(boxes, i, cap_params)
 
             squares = []
             crops = []
 
-            squares.append((left, left+80, top-70, top+10))
-            #squares.append((x-20, x+60, y-90, y-10))
-            #squares.append((x+20, x+100, y-90, y-10))
-            #squares.append((x-20, x+60, y-50, y+30))
-            #squares.append((x+20, x+100, y-50, y+30))
+            squares.append((left-10, left+90, top-90, top+10))
+            #squares.append((left-10, left+70, top-70, top+10))
+            #squares.append((left+10, left+90, top-70, top+10))
+            #squares.append((left-20, left+60, top-50, top+30))
+            #squares.append((left+20, left+100, top-50, top+30))
 
             for idx, square in enumerate(squares):
                 left, right, top, bottom = square
-                cv2.rectangle(image_np, (left, top), (right, bottom), (77, 255, 9), 1, 1)
-                crop_img = cp[top:bottom, left:right]
+
+                crop_img = image_np[top:bottom, left:right]
                 if crop_img.shape[0] == crop_img.shape[1]:
                     crop_img = cv2.fastNlMeansDenoisingColored(crop_img, None, 4, 4, 7, 21)
                     crop_img = cv2.Canny(crop_img, 90, 100)
                     crop_img = scipy.misc.imresize(crop_img, (28, 28))
+                    cv2.imshow('crop'+str(idx), crop_img)
                     crops.append(crop_img)
 
             return crops

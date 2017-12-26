@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 import os
 from keras import layers, models, optimizers
 from keras import backend as K
@@ -7,7 +6,8 @@ from keras.utils import to_categorical
 
 K.set_image_data_format('channels_last')
 
-def letterNet(input_shape: object = (28, 28, 1), n_class: object = 26) -> object:
+
+def letter_net(input_shape: object = (28, 28, 1), n_class: object = 26) -> object:
     model = models.Sequential()
 
     x = layers.Input(shape=input_shape)
@@ -78,47 +78,12 @@ def load_letter_data():
 
     return (x_train, y_train), (x_test, y_test)
 
-def detect(image_np, expected_letter, correct_letter_count = 0, min_certainty = 0.85):
-    import PIL.Image as Image
-    horizontal_start = 200 + (correct_letter_count * 75)
-    horizontal_end = horizontal_start + 150
-
-    vertical_start = 400
-    vertical_end = vertical_start + 150
-
-    image_np = image_np[vertical_start:vertical_end, horizontal_start:horizontal_end]
-
-    image_np = cv2.fastNlMeansDenoisingColored(image_np, None, 4, 4, 7, 21)
-    image_np = cv2.Canny(image_np, 90, 100)
-
-    crop_imgPIL = Image.fromarray(np.uint8(image_np))
-    crop_imgPIL.thumbnail((28,28))
-    image_np = np.asarray(crop_imgPIL)
-
-    cv2.imshow('crop', image_np)
-
-    letter = ''
-    mean_over_samples.append(np.mean(image_np))
-
-    if expected_letter == 'W':
-        # because the W has the most white pixels of all, random combinations of other letters
-        # sometimes get misidentified as a W, so let's make sure we are sure!
-        min_certainty = 0.98
-
-    if np.std(mean_over_samples[-10:]) < 0.8 and (mean_over_samples[-1:][0] > 2):
-        for_pred = image_np.reshape(1, 28, 28, 1).astype('float32') / 255
-        y_pred = nn.predict(for_pred, batch_size=1)
-        certainty = np.amax(y_pred, 1)
-        if certainty > min_certainty:
-            letter = chr(np.argmax(y_pred, 1) + ord('A'))
-
-    return (letter, crop_imgPIL)
 
 def train():
     from keras.preprocessing.image import ImageDataGenerator
     from keras import callbacks
 
-    model = letterNet()
+    model = letter_net()
     model.summary()
 
     (x_train, y_train), (x_test, y_test) = load_letter_data()
@@ -153,5 +118,3 @@ def train():
     print('Trained model saved')
 
     return model
-
-mean_over_samples = []

@@ -19,7 +19,7 @@ def getWords(min_len):
     nltk.download('punkt')
 
     source = FreqDist(i.lower() for i in brown.words())
-    source = np.array(source.most_common()[:4000])[:,:1]
+    source = np.array(source.most_common())[:, :1]
 
     # the Brown corpus contains duplicates and contains
     # words with weird punctuation and digits
@@ -43,8 +43,13 @@ def getSentence(word):
         return ''
 
 
+def write_to_csv(file, word, sentence):
+    with open('corpus/' + file + '.csv', 'a') as f:
+        f.write(word + ',"' + sentence + '"\n')
+
 words = getWords(3)
 for word in words:
     sentence = getSentence(word)
     if sentence != '':
-        print(word+',"'+sentence+'"')
+        print(word)
+        write_to_csv('words2', word, sentence)

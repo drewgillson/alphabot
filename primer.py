@@ -80,7 +80,8 @@ def read_from_csv(file):
         contents = [list(filter(None, c)) for c in list(reader)]
         return contents
 
-def get_word_to_spell(max_length = 4):
+
+def get_word_to_spell(max_length=3):
     global words, last_letters, last_letter, correct_letter_count
     time.sleep(2)
 
@@ -103,13 +104,13 @@ def get_touched_letter():
     boxes, scores = worker_hand_output.get()
 
     score = scores[0]
+    #print(str(score) + ': [' + str(left) + ', ' + str(top) + ']')
     if score > cap_params['hand_score_thresh']:
         left, right, top, bottom = detector_utils.get_box_coords(boxes, 0, cap_params)
         ring.append(left + top)
         hand_movement = np.std(np.array(ring.get()))
-
         if hand_movement < cap_params['hand_movement_thresh']:
-            crops = detector_utils.get_touched_letter(cap_params, scores, boxes, image_np)
+            crops = detector_utils.get_touched_letter(cap_params, scores, boxes, image_np, args)
 
             if crops is not None:
                 for crop in crops:
@@ -128,26 +129,36 @@ def get_touched_letter():
                         return out
 
 
-def get_another_word():
+def get_another_word(success=True):
     global t, word_to_spell, total_points, last_letters, iterations, correct_word_count, correct_letter_count
     elapsed = str(int(time.time() - t))
-    say(random.choice(word_accolades))
-    say(str(len(word_to_spell)) + " points.")
-    total_points += len(word_to_spell)
+
+    if success:
+        say(random.choice(word_accolades))
+        say(str(len(word_to_spell)) + " points.")
+        total_points += len(word_to_spell)
+        correct_word_count += 1
+
     print(elapsed + " seconds elapsed. You have " + str(total_points) + " points.")
     last_letters = []
     iterations = 0
-    correct_word_count += 1
     correct_letter_count = 0
     say(random.choice(thinking))
     t = time.time()
-    return get_word_to_spell()
 
+    max_length = args.length + int(correct_word_count / 3)
+    return get_word_to_spell(max_length)
+
+
+def get_random_letter():
+    expected_letter = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    say(expected_letter.lower())
+    return expected_letter
 
 def handle_keys():
     global frames, flag_capture_frames
 
-    if frames == 10:  # frames of training data to capture when you press Enter
+    if frames == 50:  # frames of training data to capture when you press Enter
         print('Captured ' + str(frames) + ' frames for ' + expected_letter)
         frames = 0
         flag_capture_frames = False
@@ -188,7 +199,8 @@ if __name__ == "__main__":
     parser.add_argument('--input', default=1, type=int)
     parser.add_argument('--width', default=800, type=int) #1280
     parser.add_argument('--height', default=600, type=int) #960
-    parser.add_argument('--min_len', default=3, type=int)
+    parser.add_argument('--length', default=6, type=int)
+    parser.add_argument('--show', default=False, type=bool)
     parser.add_argument('--mode', default="spell", type=str)
     args = parser.parse_args()
 
@@ -204,7 +216,7 @@ if __name__ == "__main__":
 
     if args.mode == "train":
         letter_utils.train()
-    elif args.mode == "spell":
+    else:
         words = read_from_csv('words')
         accolades = read_from_csv('accolades')
         word_accolades = read_from_csv('word_accolades')
@@ -230,8 +242,7 @@ if __name__ == "__main__":
         pool_worker_hands = Pool(4, worker_hands, (worker_hand_input, worker_hand_output))
         worker_letter_input = Queue(maxsize=5)
         worker_letter_output = Queue(maxsize=5)
-        pool_worker_letters = Pool(1, worker_letters, (worker_letter_input, worker_letter_output))
-        word_to_spell, sentence = get_word_to_spell()
+        pool_worker_letters = Pool(2, worker_letters, (worker_letter_input, worker_letter_output))
 
         while True:
             iterations += 1
@@ -241,25 +252,32 @@ if __name__ == "__main__":
 
             detected_letter = get_touched_letter() or ''
 
-            # letter buffer = the last N touched letters where N is the length of the word to spell:
-            letter_buffer = ''.join(last_letters[-len(word_to_spell):])
-            if letter_buffer == word_to_spell:
-                word_to_spell, sentence = get_another_word()
-                continue
-            else:
-                expected_letter = word_to_spell[correct_letter_count]
+            if args.mode == "spell":
+                if 'word_to_spell' not in locals():
+                    word_to_spell, sentence = get_word_to_spell(args.length)
 
-                if last_letter != detected_letter and detected_letter == expected_letter:
-                    handle_correct_letter()
-                elif detected_letter != '' and not flag_uhoh and iterations > 0:
-                    handle_wrong_letter()
+                # letter buffer = the last N touched letters where N is the length of the word to spell:
+                letter_buffer = ''.join(last_letters[-len(word_to_spell):])
+                if letter_buffer == word_to_spell:
+                    word_to_spell, sentence = get_another_word()
+                    continue
+                else:
+                    expected_letter = word_to_spell[correct_letter_count]
 
-                if iterations % 400 == 0 and iterations != 0:
-                    say('The word is ' + word_to_spell)
-                elif iterations == 1000:
-                    say('Ok, we will spell ' + word_to_spell + ' some other time. You have ' + str(
-                        total_points) + ' points.')
-                    word_to_spell, sentence = get_word_to_spell()
+                    if last_letter != detected_letter and detected_letter == expected_letter:
+                        handle_correct_letter()
+                    elif detected_letter != '' and not flag_uhoh and iterations > 0:
+                        handle_wrong_letter()
+
+                    if iterations % 50 == 0 and iterations != 0:
+                        say('The word is ' + word_to_spell)
+                    elif iterations == 200:
+                        say('Ok, we will spell ' + word_to_spell + ' some other time. You have ' + str(
+                            total_points) + ' points.')
+                        word_to_spell, sentence = get_another_word(success=False)
+            elif args.mode == "capture_letters":
+                if not flag_capture_frames and (iterations % 30 == 0 or iterations == 1):
+                    expected_letter = get_random_letter()
 
             if handle_keys():
                 break

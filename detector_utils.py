@@ -37,9 +37,10 @@ def get_box_coords(boxes, i, cap_params):
     return (int(boxes[i][1] * cap_params['im_width']), int(boxes[i][3] * cap_params['im_width']),
             int(boxes[i][0] * cap_params['im_height']), int(boxes[i][2] * cap_params['im_height']))
 
-def get_touched_letter(cap_params, scores, boxes, image_np):
+def get_touched_letter(cap_params, scores, boxes, image_np, args):
     import scipy.misc
 
+    cp = image_np.copy()
     for i in range(cap_params['num_hands_detect']):
         if (scores[i] > cap_params['hand_score_thresh']):
             left, right, top, bottom = get_box_coords(boxes, i, cap_params)
@@ -56,12 +57,13 @@ def get_touched_letter(cap_params, scores, boxes, image_np):
             for idx, square in enumerate(squares):
                 left, right, top, bottom = square
 
-                crop_img = image_np[top:bottom, left:right]
+                crop_img = cp[top:bottom, left:right]
                 if crop_img.shape[0] == crop_img.shape[1]:
                     crop_img = cv2.fastNlMeansDenoisingColored(crop_img, None, 4, 4, 7, 21)
                     crop_img = cv2.Canny(crop_img, 90, 100)
                     crop_img = scipy.misc.imresize(crop_img, (28, 28))
-                    cv2.imshow('crop'+str(idx), crop_img)
+                    if args.show:
+                        cv2.imshow('crop'+str(idx), crop_img)
                     crops.append(crop_img)
 
             return crops

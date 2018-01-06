@@ -38,6 +38,7 @@ import numpy as np
 import csv
 import PIL.Image as Image
 from traceback import print_exc
+import trie
 
 
 class RingBuffer(deque):
@@ -271,6 +272,10 @@ if __name__ == "__main__":
             letter_utils.train()
         else:
             words = read_from_csv(args.corpus)
+            predictor = trie.TrieNode('*')
+            for word in words:
+                trie.add(predictor, word[0])
+            # print(trie.find_prefix(predictor, 'prefix'))
 
             # You can modify the default accolades and criticisms by modifying the CSV files in corpus/
             accolades = read_from_csv('accolades')

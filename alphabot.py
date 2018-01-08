@@ -160,7 +160,7 @@ def get_touched_letter():
                             millis) + '.png', 'png')
 
                     # Submit the cropped area near a hand to the letter detector queue
-                    worker_letter_input.put((crop, 0.99))
+                    worker_letter_input.put((crop, 0.998))
                     out = worker_letter_output.get()
 
                     if out != '' and out != last_letter:
@@ -246,7 +246,7 @@ if __name__ == "__main__":
                                                  "and you are welcome to redistribute it under certain conditions. The suggested " +
                                                  "alphabet letter set is \"Melissa & Doug 52 Wooden Alphabet Magnets in a Box\". " +
                                                  "Copyright (C) 2018  Drew Gillson <drew.gillson@gmail.com>")
-    parser.add_argument('--input', default=1, type=int, help="OpenCV device id for your top-mounted camera, default is 0")
+    parser.add_argument('--input', default=0, type=int, help="OpenCV device id for your top-mounted camera, default is 0")
     parser.add_argument('--width', default=800, type=int, help="Video width, default is 800")
     parser.add_argument('--height', default=600, type=int, help="Video height, default is 600")
     parser.add_argument('--length', default=4, type=int, help="Default starting character length for words, default is 3")

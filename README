@@ -1,1 +1,26 @@
-Placeholder
+Alphabot - a screen-less interactive spelling primer powered by computer
+vision. This program comes with ABSOLUTELY NO WARRANTY. This is free software,
+and you are welcome to redistribute it under certain conditions.
+
+The suggested alphabet letter set is "Melissa & Doug 52 Wooden Alphabet Magnets in a Box",
+available from Amazon at https://www.amazon.ca/Melissa-Doug-Wooden-Alphabet-Magnets/dp/B001990BUU/.
+
+Please see https://medium.com/@drewgillson/alphabot-a-screen-less-interactive-spelling-primer-powered-by-computer-vision-cc1095bce90a
+
+Copyright (C) 2018 Drew Gillson <drew.gillson@gmail.com>
+
+Usage: python3 alphabot.py
+
+optional arguments:
+  --input               OpenCV device id for your top-mounted camera, default is 0
+  --width               Video width, default is 800
+  --height              Video height, default is 600
+  --length              Default starting character length for words, default is 3
+  --debug [True|False]  Print debug information and display input to the letter
+                        detector CNN using imshow, default is True
+  --corpus              The CSV file in corpus/ containing words you will be
+                        prompted to spell, default is One Fish Two Fish Red Fish
+                        Blue Fish, Seuss, Dr. (1960).
+  --random [True|False] Randomize word selection from corpus
+  --tts                 Text-to-speech binary, default is Mac OS "say" command
+  --train               Re-train the letter detection CNN by using the training data in images/

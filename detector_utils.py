@@ -65,6 +65,7 @@ def get_touched_letter(cap_params, scores, boxes, image_np, args):
 
     cp = image_np.copy()
     for i in range(cap_params['num_hands_detect']):
+
         if (scores[i] > cap_params['hand_score_thresh']):
             left, right, top, bottom = get_box_coords(boxes, i, cap_params)
 
@@ -86,7 +87,8 @@ def get_touched_letter(cap_params, scores, boxes, image_np, args):
                     crop_img = cv2.Canny(crop_img, 90, 100)
                     crop_img = scipy.misc.imresize(crop_img, (28, 28))
                     if args.debug:
-                        cv2.imshow('crop'+str(idx), crop_img)
+                        cv2.rectangle(image_np, (left, top), (right, bottom), (77, 255, 9), 2, 1)
+                        cv2.imshow('crop' + str(idx), crop_img)
                     crops.append(crop_img)
 
             return crops

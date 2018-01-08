@@ -52,6 +52,8 @@ def find_prefix(root, prefix: str) -> Tuple[bool, int]:
       1. If the prefix exists in any of the words we added so far
       2. If yes then how may words actually have the prefix
     """
+    global trie_words
+    trie_words = []
     node = root
     # If the root node has no children, then return False.
     # Because it means we are trying to search in an empty trie
@@ -73,14 +75,13 @@ def find_prefix(root, prefix: str) -> Tuple[bool, int]:
         if node.word_finished and idx < (len(prefix) - 1) and not node.children:
             # If so, return false. We are trying to search for a prefix longer than
             # the actual closest match.
-            return False, 0
+            return []
         # Return False anyway when we did not find a char.
         if char_not_found:
-            return False, 0
+            return []
     # Well, we are here means we have found the prefix. Return true to indicate that
     # And also the counter of the last node. This indicates how many words have this
     # prefix
-
     all_words_helper(prefix, node)
     return trie_words
 

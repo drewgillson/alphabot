@@ -68,7 +68,8 @@ def say(msg):
     if sys.platform != "darwin" and args.tts == "say":
         raise Exception("If your operating system is not Mac OS you will need to use a different command line utility"
                         "to render text to speech. espeak is one option: http://espeak.sourceforge.net/download.html")
-    subprocess.run([args.tts, msg])
+    elif msg != "":
+        subprocess.run([args.tts, msg])
 
 
 def worker_hands(input_q, output_q):
@@ -113,17 +114,24 @@ def read_from_csv(file):
 
 def get_word_to_spell(min_length=3):
     global words, last_letters, last_letter, correct_letter_count
-    time.sleep(2)
 
     last_letters = []
     last_letter = ''
     correct_letter_count = 0
 
-    while True:
-        word = random.choice(words)
-        if len(word[0]) >= min_length and len(word[0]) < (min_length + 2):
+    if args.random:
+        while True:
+            word = random.choice(words)
+            if len(word[0]) >= min_length and len(word[0]) < (min_length + 2):
+                sentence = word[1]
+                say('Can you spell ' + word[0] + '? As in: "' + sentence + '"')
+                return word[0].upper(), sentence
+    else:
+        word = words.pop(0)
+        if word:
             sentence = word[1]
-            say('Can you spell ' + word[0] + '? As in: "' + sentence + '"')
+            say(sentence)
+            say('Spell ' + word[0])
             return word[0].upper(), sentence
 
 
@@ -152,7 +160,7 @@ def get_touched_letter():
                             millis) + '.png', 'png')
 
                     # Submit the cropped area near a hand to the letter detector queue
-                    worker_letter_input.put((crop, 0.999))
+                    worker_letter_input.put((crop, 0.99))
                     out = worker_letter_output.get()
 
                     if out != '' and out != last_letter:
@@ -160,23 +168,20 @@ def get_touched_letter():
 
 
 def get_another_word(success=True):
-    global t, word_to_spell, total_points, last_letters, iterations, correct_word_count, correct_letter_count
-    elapsed = str(int(time.time() - t))
+    global word_to_spell, total_points, last_letters, iterations, correct_word_count, correct_letter_count
 
     if success:
         say(random.choice(word_accolades))
-        say(str(len(word_to_spell)) + " points.")
         total_points += len(word_to_spell)
         correct_word_count += 1
-
-    if args.debug:
-        print(elapsed + " seconds elapsed. You have " + str(total_points) + " points.")
 
     last_letters = []
     iterations = 0
     correct_letter_count = 0
-    say(random.choice(thinking))
-    t = time.time()
+
+    if args.random:
+        say(random.choice(thinking))
+        time.sleep(2)
 
     min_length = args.length + int(correct_word_count / 3)
     return get_word_to_spell(min_length)
@@ -241,14 +246,15 @@ if __name__ == "__main__":
                                                  "and you are welcome to redistribute it under certain conditions. The suggested " +
                                                  "alphabet letter set is \"Melissa & Doug 52 Wooden Alphabet Magnets in a Box\". " +
                                                  "Copyright (C) 2018  Drew Gillson <drew.gillson@gmail.com>")
-    parser.add_argument('--input', default=0, type=int, help="OpenCV device id for your top-mounted camera, default is 0")
+    parser.add_argument('--input', default=1, type=int, help="OpenCV device id for your top-mounted camera, default is 0")
     parser.add_argument('--width', default=800, type=int, help="Video width, default is 800")
     parser.add_argument('--height', default=600, type=int, help="Video height, default is 600")
-    parser.add_argument('--length', default=3, type=int, help="Default starting character length for words, default is 3")
+    parser.add_argument('--length', default=4, type=int, help="Default starting character length for words, default is 3")
     parser.add_argument('--debug', default=True, type=bool, help="Print debug information and display input to the letter detector CNN using imshow, default is True")
-    parser.add_argument('--corpus', default="brown_words", type=str, help="The CSV file in corpus/ containing words you will be prompted to spell, default is corpus/brown_words.csv")
+    parser.add_argument('--corpus', default="one_fish_two_fish_red_fish_blue_fish", type=str, help="The CSV file in corpus/ containing words you will be prompted to spell, default is One Fish Two Fish Red Fish Blue Fish, Seuss, Dr. (1960).")
+    parser.add_argument('--random', default=False, type=bool, help="Randomize word selection from corpus")
     parser.add_argument('--tts', default="say", type=str, help="Text-to-speech binary, default is Mac OS \"say\" command")
-    parser.add_argument('--mode', default="words", type=str, help="Options are \"words\", \"letters\", or \"train\", default is \"words\"")
+    parser.add_argument('--train', default=False, type=bool, help="Re-train the letter detection CNN by using the training data in images/")
     args = parser.parse_args()
     parser.print_help()
 
@@ -262,27 +268,30 @@ if __name__ == "__main__":
         cap_params = {}
         cap_params['im_width'], cap_params['im_height'] = video_capture.size()
         cap_params['num_hands_detect'] = 1
-        cap_params['hand_score_thresh'] = 0.38
+        cap_params['hand_score_thresh'] = 0.35
         cap_params['hand_movement_thresh'] = 40
 
-        if args.mode == "train":
+        if args.train:
             # If you find that certain letters are not being recognized, or if you are using a different letter set
             # than I am, you'll have to capture your own training data and retrain the CNN. You can capture training
             # data frames by pressing Enter at any time and frames will be written to images/[A-Z]/
             letter_utils.train()
         else:
-            words = read_from_csv(args.corpus)
             predictor = trie.TrieNode('*')
-            for word in words:
-                trie.add(predictor, word[0])
-            # print(trie.find_prefix(predictor, 'prefix'))
+            for word in read_from_csv('brown_words'):
+                if len(word[0]) <= args.length:
+                    trie.add(predictor, word[0])
+
+            words = read_from_csv(args.corpus)
 
             # You can modify the default accolades and criticisms by modifying the CSV files in corpus/
             accolades = read_from_csv('accolades')
             word_accolades = read_from_csv('word_accolades')
             letter_criticisms = read_from_csv('letter_criticisms')
             thinking = read_from_csv('thinking')
+            player_choose_word = read_from_csv('player_choose_word')
 
+            mode = 1
             directory = os.path.dirname(os.path.realpath(__file__))
             iterations = 0
             last_letters = []
@@ -294,7 +303,6 @@ if __name__ == "__main__":
             frames = 0
             flag_capture_frames = False
             flag_uhoh = False
-            t = time.time()
             total_points = 0
             crop = np.ones((28, 28), dtype=np.uint8)
             ring = RingBuffer(10)
@@ -305,6 +313,9 @@ if __name__ == "__main__":
             worker_letter_output = Queue(maxsize=5)
             pool_worker_letters = Pool(2, worker_letters, (worker_letter_input, worker_letter_output))
 
+            say("Hello! I am your Alpha Bot; and I can help you practice your spelling.")
+            say("Let\'s find some letters!")
+
             while True:
                 iterations += 1
                 res = cv2.waitKey(80)
@@ -313,14 +324,56 @@ if __name__ == "__main__":
 
                 detected_letter = get_touched_letter() or ''
 
-                if args.mode == "words":
-                    if 'word_to_spell' not in locals():
-                        word_to_spell, sentence = get_word_to_spell(args.length)
+                if mode == 1:
 
-                    # letter buffer = the last N touched letters where N is the length of the word to spell:
+                    if not flag_capture_frames and iterations == 1:
+                        expected_letter = get_random_letter()
+                        say('Can you find the ' + expected_letter + '?')
+
+                    say(detected_letter.lower())
+
+                    if expected_letter == detected_letter:
+                        say(random.choice(accolades))
+                        correct_letter_count += 1
+                        iterations = 0
+
+                        if correct_letter_count == 3:
+                            say(random.choice(player_choose_word))
+                            mode = 2
+                            correct_letter_count = 0
+
+                elif mode == 2: # then get the player to touch a few letters to seed a word from the trie
+                    say(detected_letter.lower())
+
+                    if last_letters[-1:] != detected_letter and detected_letter != "":
+                        last_letters.append(detected_letter)
+                        prefix = ''.join(last_letters).lower()
+
+                        try:
+                            word_to_spell = random.choice(trie.find_prefix(predictor, prefix)).upper()
+                        except IndexError:
+                            word_to_spell = False
+
+                        if len(prefix) == 2 and word_to_spell:
+                            say('I got it. Let\'s spell ' + word_to_spell)
+                            say(', '.join(list(word_to_spell.lower())))
+                            say(word_to_spell)
+                            mode = 3
+                            correct_letter_count = 2
+
+                        elif len(prefix) >= 2 and not word_to_spell:
+                            last_letters = []
+
+                elif mode == 3: # player has reached the main activity: spelling prompted words
+                    # letter buffer = the last N touched letters where N is the length of the word to spell
+                    # last_letters is appended to in the handle_correct_letter() function
                     letter_buffer = ''.join(last_letters[-len(word_to_spell):])
+
                     if letter_buffer == word_to_spell:
                         word_to_spell, sentence = get_another_word()
+                        if not word_to_spell: # all words in corpus have been spelled, go to player-directed mode
+                            say(random.choice(player_choose_word))
+                            mode = 2
                         continue
                     else:
                         expected_letter = word_to_spell[correct_letter_count]
@@ -331,26 +384,14 @@ if __name__ == "__main__":
                             handle_wrong_letter()
 
                         if iterations % 50 == 0 and iterations != 0:
-                            say('The word is ' + word_to_spell)
-                        elif iterations == 299:
-                            say('Ok, we will spell ' + word_to_spell + ' some other time. You have ' + str(
-                                total_points) + ' points.')
+                            say('Spell ' + word_to_spell)
+                            say(', '.join(list(word_to_spell.lower())))
+                        elif iterations == 199:
+                            say('Ok, we will spell ' + word_to_spell + ' some other time.')
                             word_to_spell, sentence = get_another_word(success=False)
-                elif args.mode == "letters":
 
-                    # if you spell PLAY then go to words mode
-
-                    if not flag_capture_frames and iterations == 1:
-                        expected_letter = get_random_letter()
-                        say('Can you find the ' + expected_letter + '?')
-
-                    say(detected_letter.lower())
-                    if expected_letter == detected_letter:
-
-                        # give random short example word and alliterative sentence
-
-                        say(random.choice(accolades))
-                        iterations = 0
+                if args.debug:
+                    cv2.imshow('debug', image_np)
 
                 if handle_keys():
                     break
